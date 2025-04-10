@@ -33,10 +33,12 @@ def review(
         "us-central1", "--location", help="Google Cloud location"
     ),
     repository: str | None = typer.Option(
-        metavar="--repository", default=None, help="GitHub repository in format owner/repo"
+        metavar="--repository",
+        default=None,
+        help="GitHub repository in format owner/repo",
     ),
     github_token: str | None = typer.Option(
-         metavar="--github-token", default=None, help="GitHub token for API access"
+        metavar="--github-token", default=None, help="GitHub token for API access"
     ),
     pr_number: int | None = typer.Option(
         metavar="--pr-number", default=None, help="Pull request number to comment on"

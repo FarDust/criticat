@@ -117,7 +117,9 @@ def comment_pr_node(state: FlowState) -> FlowState:
         logger.info("Issues found, commenting on PR")
         # Format PR comment
         comment_body = format_pr_comment(
-            review_feedback=flow_state.state.review_feedback if flow_state.state.review_feedback else "",
+            review_feedback=flow_state.state.review_feedback
+            if flow_state.state.review_feedback
+            else "",
             jokes=flow_state.state.jokes,
         )
 
@@ -148,6 +150,14 @@ def should_comment_on_pr(state: FlowState) -> str:
         Next node name
     """
     flow_state = FlowState.model_validate(state)
+    if any(
+        [
+            flow_state.config.repository is None,
+            flow_state.config.pr_number is None,
+            flow_state.config.github_token is None,
+        ]
+    ):
+        return END
     if flow_state.state.has_issues:
         return "comment_pr"
     return END

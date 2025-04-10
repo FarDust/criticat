@@ -11,7 +11,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_vertexai import ChatVertexAI
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableSerializable
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage
 
 from criticat.infrastructure.llms.prompts import (
     REVIEW_SYSTEM_PROMPT,
@@ -23,10 +23,12 @@ from criticat.infrastructure.llms.prompts import (
 
 logger = logging.getLogger(__name__)
 
+
 class ReviewFeedbackInput(TypedDict):
     """
     Input type for review feedback.
     """
+
     document_image: str
 
 
@@ -72,18 +74,21 @@ def create_review_prompt() -> ChatPromptTemplate:
     """
     messages = [
         SystemMessage(content=REVIEW_SYSTEM_PROMPT),
-        ("user", [
-            {
-                "type": "text",
-                "text": REVIEW_HUMAN_PROMPT,
-            },
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": "data:image/jpeg;base64,{document_image}",
-                }
-            }
-        ]),
+        (
+            "user",
+            [
+                {
+                    "type": "text",
+                    "text": REVIEW_HUMAN_PROMPT,
+                },
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "data:image/jpeg;base64,{document_image}",
+                    },
+                },
+            ],
+        ),
     ]
     return ChatPromptTemplate.from_messages(messages)
 
@@ -142,7 +147,9 @@ def generate_cat_joke(llm: ChatVertexAI, issue_count: int) -> str:
     logger.info("Generating cat joke")
     try:
         prompt = create_joke_prompt()
-        response: str = (llm | StrOutputParser()).invoke(prompt.format(issue_count=issue_count))
+        response: str = (llm | StrOutputParser()).invoke(
+            prompt.format(issue_count=issue_count)
+        )
         joke = response.strip()
         logger.warning(f"Generated cat joke: {joke}")
         return joke
@@ -150,10 +157,11 @@ def generate_cat_joke(llm: ChatVertexAI, issue_count: int) -> str:
         logger.error(f"Failed to generate cat joke: {e}")
         return "Meow, I tried to think of something witty, but I got distracted by a formatting error."
 
+
 def review_feedback_chain(
-        project_id: str,
-        location: str,
-    ) -> RunnableSerializable[ReviewFeedbackInput, str]:
+    project_id: str,
+    location: str,
+) -> RunnableSerializable[ReviewFeedbackInput, str]:
     # Initialize Vertex AI
     initialize_vertex_ai(
         project_id=project_id,
@@ -169,6 +177,8 @@ def review_feedback_chain(
 
     # Invoke LLM
     logger.info("Invoking LLM for document review")
-    review_feedback_chain: RunnableSerializable[ReviewFeedbackInput, str] = prompt | llm | StrOutputParser()
+    review_feedback_chain: RunnableSerializable[ReviewFeedbackInput, str] = (
+        prompt | llm | StrOutputParser()
+    )
 
     return review_feedback_chain

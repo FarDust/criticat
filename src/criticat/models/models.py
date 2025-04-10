@@ -24,9 +24,15 @@ class CriticatConfig(BaseModel):
     location: str = Field(
         default="us-central1", description="Google Cloud location for Vertex AI"
     )
-    github_token: str | None = Field(default=None, description="GitHub token for API access")
-    repository: str | None = Field(default=None, description="GitHub repository in format owner/repo")
-    pr_number: int | None = Field(default=None, description="Pull request number to comment on")
+    github_token: str | None = Field(
+        default=None, description="GitHub token for API access"
+    )
+    repository: str | None = Field(
+        default=None, description="GitHub repository in format owner/repo"
+    )
+    pr_number: int | None = Field(
+        default=None, description="Pull request number to comment on"
+    )
     joke_mode: JokeMode = Field(
         default=JokeMode.DEFAULT, description="Mode for injecting cat jokes"
     )
