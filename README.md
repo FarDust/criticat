@@ -21,6 +21,20 @@ Criticat reviews PDF documents for formatting issues and provides feedback as Gi
 
 ## Usage
 
+### CLI
+
+```bash
+gcloud auth application-default login
+criticat --pdf-path "example.pdf" --project-id "my-project"
+```
+
+### Model Context Protocol (Soon)
+
+```bash
+```
+
+### GitHub Actions (In Development)
+
 ```yaml
 name: Review PDF Document
 
