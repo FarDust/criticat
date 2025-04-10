@@ -1,0 +1,52 @@
+name: 'Criticat PDF Reviewer'
+description: 'GitHub Action that reviews PDF documents using Gemini AI and provides feedback as PR comments'
+branding:
+  icon: 'book-open'
+  color: 'orange'
+
+inputs:
+  pdf-path:
+    description: 'Path to the PDF file to review'
+    required: true
+  project-id:
+    description: 'Google Cloud project ID for Vertex AI'
+    required: true
+  location:
+    description: 'Google Cloud location for Vertex AI'
+    default: 'us-central1'
+    required: false
+  github-token:
+    description: 'GitHub token for API access'
+    required: true
+    default: ${{ github.token }}
+  repository:
+    description: 'GitHub repository in format owner/repo'
+    required: false
+    default: ${{ github.repository }}
+  pr-number:
+    description: 'Pull request number to comment on'
+    required: false
+    default: ${{ github.event.pull_request.number }}
+  joke-mode:
+    description: 'Mode for injecting cat jokes: none, default, or chaotic'
+    required: false
+    default: 'default'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - '--pdf-path'
+    - ${{ inputs.pdf-path }}
+    - '--project-id'
+    - ${{ inputs.project-id }}
+    - '--location'
+    - ${{ inputs.location }}
+    - '--github-token'
+    - ${{ inputs.github-token }}
+    - '--repository'
+    - ${{ inputs.repository }}
+    - '--pr-number'
+    - ${{ inputs.pr-number }}
+    - '--joke-mode'
+    - ${{ inputs.joke-mode }}

@@ -1,0 +1,39 @@
+[project]
+name = "criticat"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "FarDust", email = "gabriel.faundez@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "langchain-google-vertexai>=2.0.19",
+    "langchain>=0.3.23",
+    "langgraph>=0.3.27",
+    "mcp[cli]>=1.6.0",
+    "pdf2image>=1.17.0",
+    "pydantic>=2.11.3",
+    "typer>=0.15.2",
+]
+
+[project.scripts]
+criticat = "criticat:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.criticat]
+default_joke_mode = "default"
+
+[tool.criticat.server]
+default_host = "0.0.0.0"
+default_port = 8000
