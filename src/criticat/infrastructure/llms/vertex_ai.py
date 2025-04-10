@@ -4,13 +4,16 @@ Handles Vertex AI Gemini model interactions.
 """
 
 import logging
-from typing import Tuple
+from typing import Tuple, TypedDict
 
 from google.cloud import aiplatform
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_vertexai import ChatVertexAI
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableSerializable
+from langchain_core.messages import SystemMessage, HumanMessage
 
-from criticat.prompts import (
+from criticat.infrastructure.llms.prompts import (
     REVIEW_SYSTEM_PROMPT,
     REVIEW_HUMAN_PROMPT,
     CAT_JOKE_SYSTEM_PROMPT,
@@ -19,6 +22,12 @@ from criticat.prompts import (
 
 
 logger = logging.getLogger(__name__)
+
+class ReviewFeedbackInput(TypedDict):
+    """
+    Input type for review feedback.
+    """
+    document_image: str
 
 
 def initialize_vertex_ai(project_id: str, location: str) -> None:
@@ -46,7 +55,7 @@ def get_review_llm(project_id: str, location: str) -> ChatVertexAI:
     """
     logger.info("Creating ChatVertexAI instance for document review")
     return ChatVertexAI(
-        model_name="gemini-1.5-flash",
+        model_name="gemini-1.5-flash-002",
         project=project_id,
         location=location,
         max_output_tokens=2048,
@@ -62,8 +71,19 @@ def create_review_prompt() -> ChatPromptTemplate:
         ChatPromptTemplate instance
     """
     messages = [
-        ("system", REVIEW_SYSTEM_PROMPT),
-        ("human", REVIEW_HUMAN_PROMPT),
+        SystemMessage(content=REVIEW_SYSTEM_PROMPT),
+        ("user", [
+            {
+                "type": "text",
+                "text": REVIEW_HUMAN_PROMPT,
+            },
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": "data:image/jpeg;base64,{document_image}",
+                }
+            }
+        ]),
     ]
     return ChatPromptTemplate.from_messages(messages)
 
@@ -77,7 +97,7 @@ def create_joke_prompt() -> ChatPromptTemplate:
     """
     messages = [
         ("system", CAT_JOKE_SYSTEM_PROMPT),
-        ("human", CAT_JOKE_HUMAN_PROMPT),
+        ("user", CAT_JOKE_HUMAN_PROMPT),
     ]
     return ChatPromptTemplate.from_messages(messages)
 
@@ -122,10 +142,33 @@ def generate_cat_joke(llm: ChatVertexAI, issue_count: int) -> str:
     logger.info("Generating cat joke")
     try:
         prompt = create_joke_prompt()
-        response = llm.invoke(prompt.format(issue_count=issue_count))
-        joke = response.content.strip()
+        response: str = (llm | StrOutputParser()).invoke(prompt.format(issue_count=issue_count))
+        joke = response.strip()
         logger.warning(f"Generated cat joke: {joke}")
         return joke
     except Exception as e:
         logger.error(f"Failed to generate cat joke: {e}")
         return "Meow, I tried to think of something witty, but I got distracted by a formatting error."
+
+def review_feedback_chain(
+        project_id: str,
+        location: str,
+    ) -> RunnableSerializable[ReviewFeedbackInput, str]:
+    # Initialize Vertex AI
+    initialize_vertex_ai(
+        project_id=project_id,
+        location=location,
+    )
+
+    # Get LLM and prompt
+    llm = get_review_llm(
+        project_id=project_id,
+        location=location,
+    )
+    prompt = create_review_prompt()
+
+    # Invoke LLM
+    logger.info("Invoking LLM for document review")
+    review_feedback_chain: RunnableSerializable[ReviewFeedbackInput, str] = prompt | llm | StrOutputParser()
+
+    return review_feedback_chain

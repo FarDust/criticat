@@ -5,33 +5,26 @@ Defines the document review workflow as a graph of nodes.
 
 import logging
 import random
-from typing import Dict, Any, TypedDict
+from typing import Dict, Any
 
 from langgraph.graph import StateGraph, START, END
 
 from criticat.document import extract_document_image
-from criticat.llm import (
-    initialize_vertex_ai,
-    get_review_llm,
-    create_review_prompt,
+from criticat.infrastructure.llms.vertex_ai import (
     analyze_review_feedback,
     generate_cat_joke,
+    get_review_llm,
+    review_feedback_chain,
 )
-from criticat.github import comment_on_pr, format_pr_comment
-from criticat.models import FlowState, JokeMode, PRCommentPayload
+from criticat.infrastructure.github.pull_request import comment_on_pr, format_pr_comment
+from criticat.models.models import FlowState, JokeMode, PRCommentPayload
+from langgraph.graph.state import CompiledStateGraph
 
 
 logger = logging.getLogger(__name__)
 
 
-class GraphState(TypedDict):
-    """State dictionary for the graph."""
-
-    config: Dict[str, Any]
-    state: Dict[str, Any]
-
-
-def extract_text_node(state: GraphState) -> GraphState:
+def extract_text_node(state: FlowState) -> FlowState:
     """
     Extract text from PDF document.
 
@@ -49,10 +42,10 @@ def extract_text_node(state: GraphState) -> GraphState:
     flow_state.state.document_image = document_image
 
     logger.info("Successfully extracted document image from PDF")
-    return flow_state.model_dump()
+    return flow_state
 
 
-def review_llm_node(state: GraphState) -> GraphState:
+def review_llm_node(state: FlowState) -> FlowState:
     """
     Review document using LLM.
 
@@ -65,30 +58,27 @@ def review_llm_node(state: GraphState) -> GraphState:
     logger.info("Running review_llm_node")
     flow_state = FlowState.model_validate(state)
 
-    # Initialize Vertex AI
-    initialize_vertex_ai(
+    assert flow_state.state.document_image is not None, "Document image is required"
+
+    review_feedback = review_feedback_chain(
         project_id=flow_state.config.project_id,
         location=flow_state.config.location,
+    ).invoke(
+        input={
+            "document_image": flow_state.state.document_image,
+        }
     )
-
-    # Get LLM and prompt
-    llm = get_review_llm(
-        project_id=flow_state.config.project_id,
-        location=flow_state.config.location,
-    )
-    prompt = create_review_prompt()
-
-    # Invoke LLM
-    logger.info("Invoking LLM for document review")
-    document_image = flow_state.state.document_image
-    response = llm.invoke(prompt.format(document_image=document_image))
-    review_feedback = response.content
 
     # Update state
     flow_state.state.review_feedback = review_feedback
     has_issues, issue_count = analyze_review_feedback(review_feedback)
     flow_state.state.has_issues = has_issues
     flow_state.state.issue_count = issue_count
+
+    llm = get_review_llm(
+        project_id=flow_state.config.project_id,
+        location=flow_state.config.location,
+    )
 
     # Handle jokes based on joke mode
     joke_mode = flow_state.config.joke_mode
@@ -107,10 +97,10 @@ def review_llm_node(state: GraphState) -> GraphState:
     elif joke_mode == JokeMode.NONE:
         logger.info("Joke mode is set to NONE, no jokes will be added")
 
-    return flow_state.model_dump()
+    return flow_state
 
 
-def comment_pr_node(state: GraphState) -> GraphState:
+def comment_pr_node(state: FlowState) -> FlowState:
     """
     Comment on PR if issues were found.
 
@@ -127,7 +117,7 @@ def comment_pr_node(state: GraphState) -> GraphState:
         logger.info("Issues found, commenting on PR")
         # Format PR comment
         comment_body = format_pr_comment(
-            review_feedback=flow_state.state.review_feedback,
+            review_feedback=flow_state.state.review_feedback if flow_state.state.review_feedback else "",
             jokes=flow_state.state.jokes,
         )
 
@@ -144,10 +134,10 @@ def comment_pr_node(state: GraphState) -> GraphState:
     else:
         logger.info("No issues found, skipping PR comment")
 
-    return flow_state.model_dump()
+    return flow_state
 
 
-def should_comment_on_pr(state: GraphState) -> str:
+def should_comment_on_pr(state: FlowState) -> str:
     """
     Determine if we should comment on the PR.
 
@@ -163,15 +153,15 @@ def should_comment_on_pr(state: GraphState) -> str:
     return END
 
 
-def create_review_graph() -> StateGraph:
+def create_review_graph() -> CompiledStateGraph:
     """
     Create a LangGraph for document review.
 
     Returns:
-        StateGraph instance
+        CompiledStateGraph instance
     """
     # Create graph builder
-    builder = StateGraph(GraphState)
+    builder = StateGraph(FlowState)
 
     # Add nodes
     builder.add_node("extract_text", extract_text_node)

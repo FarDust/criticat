@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def convert_pdf_to_images(
-    pdf_path: str, first_page_only: bool = True
+    pdf_path: str
 ) -> List[Image.Image]:
     """
     Convert a PDF file to a list of PIL Image objects.
@@ -30,9 +30,9 @@ def convert_pdf_to_images(
     """
     logger.info(f"Converting PDF to images: {pdf_path}")
     try:
-        images = convert_from_path(pdf_path)
-        if first_page_only and images:
-            return [images[0]]
+        images = convert_from_path(pdf_path, fmt="jpeg")
+        if images:
+            return images
         return images
     except Exception as e:
         logger.error(f"Failed to convert PDF to images: {e}")
@@ -50,7 +50,7 @@ def encode_image_to_base64(image: Image.Image) -> str:
         Base64-encoded string
     """
     buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
+    image.save(buffer, format="JPEG")
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
@@ -65,7 +65,7 @@ def extract_document_image(pdf_path: str) -> str:
         Base64-encoded image string
     """
     logger.info(f"Extracting document image from PDF: {pdf_path}")
-    images = convert_pdf_to_images(pdf_path, first_page_only=True)
+    images = convert_pdf_to_images(pdf_path)
     if not images:
         logger.error("No images extracted from PDF")
         raise ValueError("No images extracted from PDF")
