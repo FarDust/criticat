@@ -33,7 +33,7 @@ criticat --pdf-path "example.pdf" --project-id "my-project"
 ```bash
 ```
 
-### Github Actions (In Development)
+### GitHub Actions (In Development)
 
 ```yaml
 name: Review PDF Document
