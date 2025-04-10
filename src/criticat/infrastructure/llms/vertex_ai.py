@@ -14,7 +14,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableSerializable, RunnableLambda
 from langchain_core.messages import SystemMessage
 
-from criticat.infrastructure.llms.models.formating import FormatReview
+from criticat.infrastructure.llms.models.formatting import FormatReview
 from criticat.infrastructure.llms.prompts import (
     REVIEW_SYSTEM_PROMPT,
     REVIEW_HUMAN_PROMPT,
