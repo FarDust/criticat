@@ -80,7 +80,11 @@ def create_review_prompt(schema: dict[str, Any]) -> ChatPromptTemplate:
             [
                 {
                     "type": "text",
-                    "text": REVIEW_HUMAN_PROMPT.format(schema=dumps(schema, indent=2).replace("{", "{{").replace("}", "}}")),
+                    "text": REVIEW_HUMAN_PROMPT.format(
+                        schema=dumps(schema, indent=2)
+                        .replace("{", "{{")
+                        .replace("}", "}}")
+                    ),
                 },
                 {
                     "type": "image_url",
@@ -180,7 +184,7 @@ def review_feedback_chain(
     # Invoke LLM
     logger.info("Invoking LLM for document review")
     review_feedback_chain: RunnableSerializable[ReviewFeedbackInput, str] = (
-        prompt | llm | RunnableLambda(lambda x: x["raw"]) |StrOutputParser()
+        prompt | llm | RunnableLambda(lambda x: x["raw"]) | StrOutputParser()
     )
 
     return review_feedback_chain

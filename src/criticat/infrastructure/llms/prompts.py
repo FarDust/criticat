@@ -3,7 +3,6 @@ Prompt constants for the Criticat GitHub Action.
 All prompts used in the system are defined here.
 """
 
-
 REVIEW_SYSTEM_PROMPT = """
 You are a LaTeX formatting expert helping the user review a résumé PDF for layout and presentation issues.
 
