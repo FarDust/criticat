@@ -4,6 +4,7 @@ Defines the document review workflow as a graph of nodes.
 """
 
 import logging
+from pathlib import Path
 import random
 from typing import Dict, Any
 
@@ -96,6 +97,9 @@ def review_llm_node(state: FlowState) -> FlowState:
         flow_state.state.jokes.append(joke)
     elif joke_mode == JokeMode.NONE:
         logger.info("Joke mode is set to NONE, no jokes will be added")
+
+    with Path("./reports/criticat.json").open("w") as f:
+        f.write(flow_state.model_dump_json(indent=2))
 
     return flow_state
 

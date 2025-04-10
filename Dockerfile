@@ -16,7 +16,4 @@ COPY . /app/
 # Install dependencies with uv
 RUN uv pip install --system .
 
-# Set entrypoint
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["criticat"]
