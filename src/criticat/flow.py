@@ -101,7 +101,7 @@ def review_llm_node(state: FlowState) -> FlowState:
     reports_path = Path("./reports").absolute().resolve()
     reports_path.mkdir(exist_ok=True)
 
-    with Path(reports_path / "criticat.json").open("w") as f:
+    with Path(reports_path / "criticat.json").open("w", encoding="utf-8") as f:
         f.write(flow_state.state.model_dump_json(indent=2, exclude={"document_image"}))
 
     return flow_state
