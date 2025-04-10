@@ -20,9 +20,6 @@ Focus on the document formatting and layout issues:
 3. Verify that the document has a professional appearance
 4. Identify any issues with margins, font consistency, or visual structure
 
-Document to review:
-{document_image}
-
 Provide specific feedback on formatting issues found. If the document meets all formatting
 standards, say so briefly. If issues are found, explain what should be fixed.
 """

@@ -8,7 +8,7 @@ import sys
 import typer
 
 from criticat.flow import run_review_graph
-from criticat.models import CriticatConfig, JokeMode
+from criticat.models.models import CriticatConfig, JokeMode
 
 
 # Configure logging
@@ -32,14 +32,16 @@ def review(
     location: str = typer.Option(
         "us-central1", "--location", help="Google Cloud location"
     ),
-    github_token: str = typer.Option(
-        ..., "--github-token", help="GitHub token for API access"
+    repository: str | None = typer.Option(
+        metavar="--repository",
+        default=None,
+        help="GitHub repository in format owner/repo",
     ),
-    repository: str = typer.Option(
-        ..., "--repository", help="GitHub repository in format owner/repo"
+    github_token: str | None = typer.Option(
+        metavar="--github-token", default=None, help="GitHub token for API access"
     ),
-    pr_number: int = typer.Option(
-        ..., "--pr-number", help="Pull request number to comment on"
+    pr_number: int | None = typer.Option(
+        metavar="--pr-number", default=None, help="Pull request number to comment on"
     ),
     joke_mode: JokeMode = typer.Option(
         JokeMode.DEFAULT,

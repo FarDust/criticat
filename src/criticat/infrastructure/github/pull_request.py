@@ -7,7 +7,7 @@ import logging
 
 import requests
 
-from criticat.models import PRCommentPayload
+from criticat.models.models import PRCommentPayload
 
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ def format_pr_comment(review_feedback: str, jokes: list[str]) -> str:
     Returns:
         Formatted PR comment body
     """
-    from criticat.prompts import PR_COMMENT_TEMPLATE
+    from criticat.infrastructure.llms.prompts import PR_COMMENT_TEMPLATE
 
     jokes_section = ""
     if jokes:

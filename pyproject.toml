@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
-criticat = "criticat:main"
+criticat = "criticat.interfaces.cli:app"
 
 [build-system]
 requires = ["hatchling"]
