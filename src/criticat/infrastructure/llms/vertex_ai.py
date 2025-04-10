@@ -3,16 +3,18 @@ LLM integration module for Criticat.
 Handles Vertex AI Gemini model interactions.
 """
 
+from json import dumps
 import logging
-from typing import Tuple, TypedDict
+from typing import Any, Tuple, TypedDict
 
 from google.cloud import aiplatform
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_vertexai import ChatVertexAI
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnableSerializable
+from langchain_core.runnables import RunnableSerializable, RunnableLambda
 from langchain_core.messages import SystemMessage
 
+from criticat.infrastructure.llms.models.formatting import FormatReview
 from criticat.infrastructure.llms.prompts import (
     REVIEW_SYSTEM_PROMPT,
     REVIEW_HUMAN_PROMPT,
@@ -60,12 +62,11 @@ def get_review_llm(project_id: str, location: str) -> ChatVertexAI:
         model_name="gemini-1.5-flash-002",
         project=project_id,
         location=location,
-        max_output_tokens=2048,
-        temperature=0.2,
+        temperature=0.35,
     )
 
 
-def create_review_prompt() -> ChatPromptTemplate:
+def create_review_prompt(schema: dict[str, Any]) -> ChatPromptTemplate:
     """
     Create a LangChain ChatPromptTemplate for document review.
 
@@ -79,7 +80,11 @@ def create_review_prompt() -> ChatPromptTemplate:
             [
                 {
                     "type": "text",
-                    "text": REVIEW_HUMAN_PROMPT,
+                    "text": REVIEW_HUMAN_PROMPT.format(
+                        schema=dumps(schema, indent=2)
+                        .replace("{", "{{")
+                        .replace("}", "}}")
+                    ),
                 },
                 {
                     "type": "image_url",
@@ -172,13 +177,14 @@ def review_feedback_chain(
     llm = get_review_llm(
         project_id=project_id,
         location=location,
-    )
-    prompt = create_review_prompt()
+    ).with_structured_output(FormatReview, include_raw=True)
+
+    prompt = create_review_prompt(schema=FormatReview.model_json_schema())
 
     # Invoke LLM
     logger.info("Invoking LLM for document review")
     review_feedback_chain: RunnableSerializable[ReviewFeedbackInput, str] = (
-        prompt | llm | StrOutputParser()
+        prompt | llm | RunnableLambda(lambda x: x["raw"]) | StrOutputParser()
     )
 
     return review_feedback_chain
