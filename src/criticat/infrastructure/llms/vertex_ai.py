@@ -126,7 +126,7 @@ def analyze_review_feedback(feedback: str) -> Tuple[bool, int]:
     feedback_lower = feedback.lower()
     has_issues = any(
         word in feedback_lower
-        for word in ["issue", "problem", "fix", "correct", "improve"]
+        for word in ["error", "warning"]
     )
 
     # Count the number of issues mentioned (simplistic approach)
@@ -177,14 +177,14 @@ def review_feedback_chain(
     llm = get_review_llm(
         project_id=project_id,
         location=location,
-    ).with_structured_output(FormatReview, include_raw=True)
+    ).with_structured_output(FormatReview)
 
     prompt = create_review_prompt(schema=FormatReview.model_json_schema())
 
     # Invoke LLM
     logger.info("Invoking LLM for document review")
     review_feedback_chain: RunnableSerializable[ReviewFeedbackInput, str] = (
-        prompt | llm | RunnableLambda(lambda x: x["raw"]) | StrOutputParser()
+        prompt | llm | RunnableLambda(lambda x: x.model_dump_json(indent=2))
     )
 
     return review_feedback_chain
