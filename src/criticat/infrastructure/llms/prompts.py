@@ -94,7 +94,12 @@ Keep it brief, clever, and with claws out.
 
 
 CAT_JOKE_HUMAN_PROMPT = """
-I just reviewed a document and found {issue_count} formatting issues.
+I just reviewed a document and found formatting issues.
+
+Here they are the issues i found:
+
+{review_feedback}
+
 Give me one sarcastic, cat-themed comment I can add to my review.
 Make it short, sharp, and sound like a judgmental cat who's sick of ugly layouts and inconsistent spacing.
 Claws out. Humor on.

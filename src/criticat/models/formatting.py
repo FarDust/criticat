@@ -47,3 +47,15 @@ class FormatReview(BaseModel):
     categories: List[FormatCategoryItem] = Field(
         ..., description="All detected categories and their issues."
     )
+
+    def has_issues(self) -> bool:
+        for category in self.categories:
+            if any(issue.status in ["error", "warning"] for issue in category.issues):
+                return True
+        return False
+
+    def issue_count(self) -> int:
+        count = 0
+        for category in self.categories:
+            count += len(category.issues)
+        return count

@@ -52,7 +52,7 @@ def encode_image_to_base64(image: Image.Image) -> str:
     return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
-def extract_document_image(pdf_path: str) -> str:
+def extract_document_image(pdf_path: str) -> list[str]:
     """
     Extract the first page of a PDF as a base64-encoded image.
 
@@ -60,7 +60,9 @@ def extract_document_image(pdf_path: str) -> str:
         pdf_path: Path to the PDF file
 
     Returns:
-        Base64-encoded image string
+        list[str]: List of base64-encoded image strings
+    Raises:
+        ValueError: If no images are extracted from the PDF
     """
     logger.info(f"Extracting document image from PDF: {pdf_path}")
     images = convert_pdf_to_images(pdf_path)
@@ -68,4 +70,6 @@ def extract_document_image(pdf_path: str) -> str:
         logger.error("No images extracted from PDF")
         raise ValueError("No images extracted from PDF")
 
-    return encode_image_to_base64(images[0])
+    logger.info(f"Extracted {len(images)} images from PDF")
+
+    return [encode_image_to_base64(image) for image in images]
