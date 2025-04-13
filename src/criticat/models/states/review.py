@@ -15,5 +15,3 @@ class ReviewState(BaseModel):
     jokes: list[str] = Field(
         default_factory=list, description="List of cat jokes to inject"
     )
-
-

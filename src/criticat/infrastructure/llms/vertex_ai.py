@@ -68,7 +68,9 @@ def get_vertex_llm(project_id: str, location: str) -> ChatVertexAI:
     )
 
 
-def create_review_prompt(document_images: list[str], schema: dict[str, Any]) -> ChatPromptTemplate:
+def create_review_prompt(
+    document_images: list[str], schema: dict[str, Any]
+) -> ChatPromptTemplate:
     """
     Create a LangChain ChatPromptTemplate for document review.
 
@@ -88,7 +90,6 @@ def create_review_prompt(document_images: list[str], schema: dict[str, Any]) -> 
         }
         for document_image in document_images
     ]
-    
 
     messages = [
         SystemMessage(content=REVIEW_SYSTEM_PROMPT),
@@ -103,7 +104,8 @@ def create_review_prompt(document_images: list[str], schema: dict[str, Any]) -> 
                         .replace("}", "}}")
                     ),
                 },
-            ] + images_user_message,
+            ]
+            + images_user_message,
         ),
     ]
     return ChatPromptTemplate.from_messages(messages)
@@ -164,23 +166,27 @@ def review_feedback_chain(
         location=location,
     ).with_structured_output(FormatReview)
 
-    prompt_generation = partial(create_review_prompt, schema=FormatReview.model_json_schema())
+    prompt_generation = partial(
+        create_review_prompt, schema=FormatReview.model_json_schema()
+    )
 
     # Invoke LLM
     logger.info("Invoking LLM for document review")
     review_feedback_chain: RunnableSerializable[ReviewFeedbackInput, FormatReview] = (
-        RunnableLambda(lambda inputs: prompt_generation(
-            document_images=inputs["document_images"],
-        )) | llm
+        RunnableLambda(
+            lambda inputs: prompt_generation(
+                document_images=inputs["document_images"],
+            )
+        )
+        | llm
     )
 
     return review_feedback_chain
 
+
 def joke_chain(
-    project_id: str,
-    location: str
+    project_id: str, location: str
 ) -> RunnableSerializable[dict[str, Any], str]:
-    
     # Initialize Vertex AI
     initialize_vertex_ai(
         project_id=project_id,
@@ -194,11 +200,13 @@ def joke_chain(
 
     prompt = create_joke_prompt()
 
-    joke_chain: RunnableSerializable[dict[str, Any], str] = {
-        "review_feedback": itemgetter("review_feedback"),
-    } | prompt | llm | StrOutputParser()
-    
+    joke_chain: RunnableSerializable[dict[str, Any], str] = (
+        {
+            "review_feedback": itemgetter("review_feedback"),
+        }
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
 
     return joke_chain
-
-

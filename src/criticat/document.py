@@ -70,9 +70,4 @@ def extract_document_image(pdf_path: str) -> list[str]:
 
     logger.info(f"Extracted {len(images)} images from PDF")
 
-    return [
-        encode_image_to_base64(image)
-        for image in
-        images
-    ]
-    
+    return [encode_image_to_base64(image) for image in images]
