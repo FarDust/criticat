@@ -60,7 +60,9 @@ def extract_document_image(pdf_path: str) -> list[str]:
         pdf_path: Path to the PDF file
 
     Returns:
-        Base64-encoded image string
+        list[str]: List of base64-encoded image strings
+    Raises:
+        ValueError: If no images are extracted from the PDF
     """
     logger.info(f"Extracting document image from PDF: {pdf_path}")
     images = convert_pdf_to_images(pdf_path)
