@@ -3,9 +3,11 @@ LLM integration module for Criticat.
 Handles Vertex AI Gemini model interactions.
 """
 
+from functools import partial
 from json import dumps
 import logging
-from typing import Any, Tuple, TypedDict
+from operator import itemgetter
+from typing import Any, TypedDict
 
 from google.cloud import aiplatform
 from langchain_core.prompts import ChatPromptTemplate
@@ -14,7 +16,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableSerializable, RunnableLambda
 from langchain_core.messages import SystemMessage
 
-from criticat.infrastructure.llms.models.formatting import FormatReview
+from criticat.models.formatting import FormatReview
 from criticat.infrastructure.llms.prompts import (
     REVIEW_SYSTEM_PROMPT,
     REVIEW_HUMAN_PROMPT,
@@ -31,7 +33,7 @@ class ReviewFeedbackInput(TypedDict):
     Input type for review feedback.
     """
 
-    document_image: str
+    document_images: list[str]
 
 
 def initialize_vertex_ai(project_id: str, location: str) -> None:
@@ -46,7 +48,7 @@ def initialize_vertex_ai(project_id: str, location: str) -> None:
     aiplatform.init(project=project_id, location=location)
 
 
-def get_review_llm(project_id: str, location: str) -> ChatVertexAI:
+def get_vertex_llm(project_id: str, location: str) -> ChatVertexAI:
     """
     Get a LangChain ChatVertexAI instance configured for document review.
 
@@ -66,13 +68,28 @@ def get_review_llm(project_id: str, location: str) -> ChatVertexAI:
     )
 
 
-def create_review_prompt(schema: dict[str, Any]) -> ChatPromptTemplate:
+def create_review_prompt(document_images: list[str], schema: dict[str, Any]) -> ChatPromptTemplate:
     """
     Create a LangChain ChatPromptTemplate for document review.
 
     Returns:
         ChatPromptTemplate instance
     """
+
+    logger.info("Creating review prompt")
+    logger.info(f"Document images: {len(document_images)} images")
+
+    images_user_message = [
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:image/jpeg;base64,{document_image}",
+            },
+        }
+        for document_image in document_images
+    ]
+    
+
     messages = [
         SystemMessage(content=REVIEW_SYSTEM_PROMPT),
         (
@@ -86,13 +103,7 @@ def create_review_prompt(schema: dict[str, Any]) -> ChatPromptTemplate:
                         .replace("}", "}}")
                     ),
                 },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": "data:image/jpeg;base64,{document_image}",
-                    },
-                },
-            ],
+            ] + images_user_message,
         ),
     ]
     return ChatPromptTemplate.from_messages(messages)
@@ -110,32 +121,6 @@ def create_joke_prompt() -> ChatPromptTemplate:
         ("user", CAT_JOKE_HUMAN_PROMPT),
     ]
     return ChatPromptTemplate.from_messages(messages)
-
-
-def analyze_review_feedback(feedback: str) -> Tuple[bool, int]:
-    """
-    Analyze the review feedback to determine if there are issues.
-
-    Args:
-        feedback: The LLM review feedback
-
-    Returns:
-        Tuple of (has_issues, issue_count)
-    """
-    # Simple heuristic: if feedback mentions issues or problems, it has issues
-    feedback_lower = feedback.lower()
-    has_issues = any(
-        word in feedback_lower
-        for word in ["error", "warning"]
-    )
-
-    # Count the number of issues mentioned (simplistic approach)
-    issue_count = feedback_lower.count("issue") + feedback_lower.count("problem")
-    if issue_count == 0 and has_issues:
-        issue_count = 1
-
-    logger.info(f"Analysis: has_issues={has_issues}, issue_count={issue_count}")
-    return has_issues, issue_count
 
 
 def generate_cat_joke(llm: ChatVertexAI, issue_count: int) -> str:
@@ -166,7 +151,7 @@ def generate_cat_joke(llm: ChatVertexAI, issue_count: int) -> str:
 def review_feedback_chain(
     project_id: str,
     location: str,
-) -> RunnableSerializable[ReviewFeedbackInput, str]:
+) -> RunnableSerializable[ReviewFeedbackInput, FormatReview]:
     # Initialize Vertex AI
     initialize_vertex_ai(
         project_id=project_id,
@@ -174,17 +159,46 @@ def review_feedback_chain(
     )
 
     # Get LLM and prompt
-    llm = get_review_llm(
+    llm = get_vertex_llm(
         project_id=project_id,
         location=location,
     ).with_structured_output(FormatReview)
 
-    prompt = create_review_prompt(schema=FormatReview.model_json_schema())
+    prompt_generation = partial(create_review_prompt, schema=FormatReview.model_json_schema())
 
     # Invoke LLM
     logger.info("Invoking LLM for document review")
-    review_feedback_chain: RunnableSerializable[ReviewFeedbackInput, str] = (
-        prompt | llm | RunnableLambda(lambda x: x.model_dump_json(indent=2))
+    review_feedback_chain: RunnableSerializable[ReviewFeedbackInput, FormatReview] = (
+        RunnableLambda(lambda inputs: prompt_generation(
+            document_images=inputs["document_images"],
+        )) | llm
     )
 
     return review_feedback_chain
+
+def joke_chain(
+    project_id: str,
+    location: str
+) -> RunnableSerializable[dict[str, Any], str]:
+    
+    # Initialize Vertex AI
+    initialize_vertex_ai(
+        project_id=project_id,
+        location=location,
+    )
+
+    llm = get_vertex_llm(
+        project_id=project_id,
+        location=location,
+    )
+
+    prompt = create_joke_prompt()
+
+    joke_chain: RunnableSerializable[dict[str, Any], str] = {
+        "review_feedback": itemgetter("review_feedback"),
+    } | prompt | llm | StrOutputParser()
+    
+
+    return joke_chain
+
+

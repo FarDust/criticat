@@ -7,8 +7,9 @@ import sys
 
 import typer
 
-from criticat.flow import run_review_graph
-from criticat.models.models import CriticatConfig, JokeMode
+from criticat.models.config.app import JokeMode, ReviewConfig
+from criticat.models.models import VertexAIConfig
+from criticat.use_cases.review import ReviewPDF
 
 
 # Configure logging
@@ -56,18 +57,23 @@ def review(
 
     try:
         # Create config
-        config = CriticatConfig(
+        config = ReviewConfig(
             pdf_path=pdf_path,
-            project_id=project_id,
-            location=location,
-            github_token=github_token,
-            repository=repository,
-            pr_number=pr_number,
             joke_mode=joke_mode,
         )
 
-        # Run review flow directly
-        run_review_graph(config.model_dump())
+        review_use_case = ReviewPDF(
+            provider_configs=[
+                VertexAIConfig(
+                    project_id=project_id,
+                    location=location,
+                ),
+            ]
+        )
+
+        review_use_case._run(
+            config=config.model_dump(),
+        )
 
         logger.info("Review completed successfully")
     except Exception as e:
