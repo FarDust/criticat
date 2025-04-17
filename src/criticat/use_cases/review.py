@@ -248,7 +248,6 @@ class ReviewPDF:
         return builder.compile()
 
     def _run(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """
         Run the document review graph with the given configuration.
 
         Args:
