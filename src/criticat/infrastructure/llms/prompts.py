@@ -74,11 +74,10 @@ Can you review this résumé PDF generated from LaTeX and identify any formattin
 {schema}
 
 Use the following status logic:
-- "error" for any issue that breaks readability (e.g., occlusion or unreadable overlaps)
+- "critical" for issues that completely break the document (e.g., occlusion, cut-off text)
+- "error" for any issue that breaks readability (e.g. unreadable overlaps)
 - "warning" for misalignment, weird spacing, or styling inconsistencies
 - "info" for minor or cosmetic inconsistencies
-
-Do not assign "warning" or "info" to occlusion. That's always an error.
 
 
 Please organize your findings into sections like spacing, alignment, visual consistency, etc. Also, guess the potential LaTeX or compilation cause for each issue.
