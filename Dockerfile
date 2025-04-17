@@ -10,10 +10,14 @@ RUN apt-get update && apt-get install -y \
 # Install uv for package management
 RUN pip install uv
 
+# Copy only files needed for dependency installation
+COPY pyproject.toml uv.lock /app/
+
 # Copy project files
 COPY . /app/
 
 # Install dependencies with uv
 RUN uv pip install --system .
 
-ENTRYPOINT ["criticat"]
+RUN criticat-cli --help
+ENTRYPOINT ["criticat-cli"]
