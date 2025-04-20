@@ -17,7 +17,6 @@ from criticat.models.formatting import (
     FormatIssue,
 )
 from criticat.models.config.app import ReviewConfig
-from criticat.models.states.control import ControlState, ControllableConfig
 from criticat.models.states.review import ReviewState
 
 

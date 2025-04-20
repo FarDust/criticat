@@ -3,10 +3,10 @@ from typing import List
 from typing import Literal
 
 FormatCategoryName = Literal[
-    "word_spacing",
-    "character_spacing",
-    "section_spacing",
-    "paragraph_spacing",
+    # "word_spacing",
+    # "character_spacing",
+    # "section_spacing",
+    # "paragraph_spacing",
     "text_alignment",
     "font_quality",
     "rendering_quality",
@@ -27,6 +27,27 @@ FormatCategoryName = Literal[
 ]
 
 
+class IssueBoundingBox(BaseModel):
+    example: str = Field(
+        default="",
+        description=(
+            "Example or snippet from the document where the issue occurs. "
+            "In an OCR setting, this could include the text that was misinterpreted, "
+            "hints about nearby LaTeX commands, or whether the straight text is legible. "
+            "This provides context to help identify and resolve the issue."
+        ),
+    )
+
+    bounding_box: list[int] = Field(
+        ...,
+        description=(
+            "Bounding box coordinates of the issue in the document. "
+            "This should be a list of four floats representing the coordinates of the "
+            "bounding box (x1, y1, x2, y2) in the document."
+        ),
+    )
+
+
 class FormatIssue(BaseModel):
     description: str = Field(
         ...,
@@ -43,22 +64,16 @@ class FormatIssue(BaseModel):
             "why it is categorized under a specific status and the confidence level associated with it."
         ),
     )
-    example: str = Field(
-        "",
+    error_location: IssueBoundingBox = Field(
+        ...,
         description=(
-            "Example or snippet from the document where the issue occurs. "
-            "In an OCR setting, this could include the text that was misinterpreted, "
-            "hints about nearby LaTeX commands, or whether the straight text is legible. "
-            "This provides context to help identify and resolve the issue."
+            "The location of the error in the document. This field is used to "
+            "specify the bounding box or area where the issue occurs."
         ),
     )
     cause: str = Field(
-        "",
-        description=(
-            "Likely cause of the issue (e.g., LaTeX misconfiguration). "
-            "This should include a marker of relative weight between 0 to 1, "
-            "indicating the confidence or relevance of the assumption (e.g., /vspace:0.4)."
-        ),
+        ...,
+        description=("Likely cause of the issue (e.g., LaTeX misconfiguration). "),
     )
     status: Literal["critical", "error", "warning", "info"] = Field(
         ...,
@@ -66,11 +81,10 @@ class FormatIssue(BaseModel):
             "Status of the issue.\n"
             "Critical: An issue that completely breaks the document, like occlusion "
             "or cut-off text.\n"
-            "Error: An issue that can prevent reading something, like occlusion "
+            "Error: An issue that can prevent reading something"
             "between paragraphs that can be easily fixed with adjustments to the "
             "LaTeX code.\n"
-            "Warning: A minor fix that could be great for readability, like minor "
-            "misalignment of visual components.\n"
+            "Warning: A minor fix that could be great for readability.\n"
             "Info: Good to know."
         ),
     )

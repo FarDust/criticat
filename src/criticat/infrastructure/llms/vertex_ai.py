@@ -44,6 +44,8 @@ def initialize_vertex_ai(project_id: str, location: str) -> None:
         project_id: Google Cloud project ID
         location: Google Cloud location
     """
+    assert project_id is not None, "Project ID must be provided"
+    assert location is not None, "Location must be provided"
     logger.info(f"Initializing Vertex AI: project={project_id}, location={location}")
     aiplatform.init(project=project_id, location=location)
 
@@ -61,7 +63,7 @@ def get_vertex_llm(project_id: str, location: str) -> ChatVertexAI:
     """
     logger.info("Creating ChatVertexAI instance for document review")
     return ChatVertexAI(
-        model_name="gemini-1.5-flash-002",
+        model_name="gemini-2.5-flash-preview-04-17",
         project=project_id,
         location=location,
         temperature=0.35,
