@@ -133,9 +133,7 @@ async def review_pdf(
     try:
         logger.info(f"Received review request for PDF: {request.pdf_path}")
 
-        project_id = (
-            request.project_id or deps.get_project_id()
-        )
+        project_id = request.project_id or deps.get_project_id()
         if not project_id:
             raise HTTPException(
                 status_code=400,
@@ -154,9 +152,7 @@ async def review_pdf(
             location=location,
         )
 
-        review_use_case = deps.review_pdf_factory(
-            provider_configs=[provider_config]
-        )
+        review_use_case = deps.review_pdf_factory(provider_configs=[provider_config])
 
         logger.info("Starting review process...")
         final_state = review_use_case._run(
@@ -166,9 +162,7 @@ async def review_pdf(
         logger.info("Review completed successfully")
 
         return ReviewResponse(
-            review_feedback=final_state[
-                "review"
-            ].review_feedback,
+            review_feedback=final_state["review"].review_feedback,
             jokes=final_state["review"].jokes,
         )
 

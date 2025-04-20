@@ -23,7 +23,7 @@ class TestHealthEndpoint:
     """Tests for the health check endpoint."""
 
     @pytest.mark.asyncio
-    async def test_health_check_returns_healthy_status(self):
+    async def test_health_check_returns_healthy_status(self) -> None:
         """Test that health check returns the expected status."""
         result = await health_check()
         assert result == {"status": "healthy", "service": "Criticat API"}
@@ -35,7 +35,7 @@ class TestReviewEndpoint:
     @pytest.mark.asyncio
     async def test_review_pdf_with_valid_request(
         self, review_dependencies: ReviewDependencies
-    ):
+    ) -> None:
         """Test that review endpoint processes valid requests correctly."""
         # Arrange
         request = ReviewRequest(
