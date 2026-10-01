@@ -6,16 +6,14 @@ Handles PDF to image conversion and encoding.
 import base64
 import io
 import logging
-from typing import List
 
 from pdf2image import convert_from_path
 from PIL import Image
 
-
 logger = logging.getLogger(__name__)
 
 
-def convert_pdf_to_images(pdf_path: str) -> List[Image.Image]:
+def convert_pdf_to_images(pdf_path: str) -> list[Image.Image]:
     """
     Convert a PDF file to a list of PIL Image objects.
 

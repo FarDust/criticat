@@ -3,12 +3,12 @@ GitHub integration module for Criticat.
 Handles GitHub API interactions for PR comments.
 """
 
-from logging import getLogger, Logger
+from logging import Logger, getLogger
 
 import requests
+from pydantic import BaseModel, PrivateAttr
 
 from criticat.infrastructure.github.config import GithubConfig
-from pydantic import BaseModel, PrivateAttr
 from criticat.infrastructure.github.dtos.pull_request import PRCommentPayload
 
 
@@ -43,7 +43,7 @@ class PullRequestService(BaseModel):
                 f"Successfully commented on PR {payload.repository}#{payload.pr_number}"
             )
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self._logger.error(f"Failed to comment on PR: {e}")
             return False
 

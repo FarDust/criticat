@@ -4,11 +4,13 @@ Defines the document review workflow as a graph of nodes.
 """
 
 import logging
-from pathlib import Path
 import random
-from typing import Dict, Any, TypedDict
+from pathlib import Path
+from typing import Any, TypedDict
 
-from langgraph.graph import StateGraph, START, END
+from langchain_core.runnables import RunnableSerializable
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel
 
 from criticat.document import extract_document_image
@@ -22,9 +24,6 @@ from criticat.models.config.app import JokeMode
 from criticat.models.formatting import FormatReview
 from criticat.models.models import VertexAIConfig
 from criticat.models.states.control import ControlState
-from langgraph.graph.state import CompiledStateGraph
-from langchain_core.runnables import RunnableSerializable
-
 
 logger = logging.getLogger(__name__)
 
@@ -108,9 +107,9 @@ class ReviewPDF:
         logger.info("Running review_llm_node")
         flow_state = ControlState.model_validate(state)
 
-        assert (
-            flow_state.review.document_images is not None
-        ), "Document images are required"
+        assert flow_state.review.document_images is not None, (
+            "Document images are required"
+        )
 
         for provider_name, provider in self._providers.items():
             review_feedback: FormatReview = provider["review"].invoke(
@@ -247,7 +246,7 @@ class ReviewPDF:
         # Compile graph
         return builder.compile()
 
-    def _run(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _run(self, config: dict[str, Any]) -> dict[str, Any]:
         """
         Run the document review graph with the given configuration.
 

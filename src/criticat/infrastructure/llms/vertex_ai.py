@@ -3,27 +3,26 @@ LLM integration module for Criticat.
 Handles Vertex AI Gemini model interactions.
 """
 
+import logging
 from functools import partial
 from json import dumps
-import logging
 from operator import itemgetter
 from typing import Any, TypedDict
 
 from google.cloud import aiplatform
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_vertexai import ChatVertexAI
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnableSerializable, RunnableLambda
 from langchain_core.messages import SystemMessage
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableLambda, RunnableSerializable
+from langchain_google_vertexai import ChatVertexAI
 
-from criticat.models.formatting import FormatReview
 from criticat.infrastructure.llms.prompts import (
-    REVIEW_SYSTEM_PROMPT,
-    REVIEW_HUMAN_PROMPT,
-    CAT_JOKE_SYSTEM_PROMPT,
     CAT_JOKE_HUMAN_PROMPT,
+    CAT_JOKE_SYSTEM_PROMPT,
+    REVIEW_HUMAN_PROMPT,
+    REVIEW_SYSTEM_PROMPT,
 )
-
+from criticat.models.formatting import FormatReview
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +43,8 @@ def initialize_vertex_ai(project_id: str, location: str) -> None:
         project_id: Google Cloud project ID
         location: Google Cloud location
     """
+    assert project_id is not None, "Project ID must be provided"
+    assert location is not None, "Location must be provided"
     logger.info(f"Initializing Vertex AI: project={project_id}, location={location}")
     aiplatform.init(project=project_id, location=location)
 
@@ -61,7 +62,7 @@ def get_vertex_llm(project_id: str, location: str) -> ChatVertexAI:
     """
     logger.info("Creating ChatVertexAI instance for document review")
     return ChatVertexAI(
-        model_name="gemini-1.5-flash-002",
+        model_name="gemini-2.5-flash-preview-04-17",
         project=project_id,
         location=location,
         temperature=0.35,
@@ -145,7 +146,7 @@ def generate_cat_joke(llm: ChatVertexAI, issue_count: int) -> str:
         joke = response.strip()
         logger.warning(f"Generated cat joke: {joke}")
         return joke
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to generate cat joke: {e}")
         return "Meow, I tried to think of something witty, but I got distracted by a formatting error."
 
