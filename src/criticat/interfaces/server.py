@@ -5,12 +5,11 @@ Uses the MCP framework to provide tools and resources.
 
 import logging
 import sys  # Import sys for stdout handler
-from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
 from criticat.models.config.app import JokeMode, ReviewConfig
-from criticat.models.config.environment import get_gcp_project_id, get_gcp_location
+from criticat.models.config.environment import get_gcp_location, get_gcp_project_id
 from criticat.models.models import VertexAIConfig
 from criticat.models.states.review import ReviewState
 from criticat.use_cases.review import ReviewPDF
@@ -33,8 +32,8 @@ mcp = FastMCP(name="Criticat")
 @mcp.tool()
 def review(
     pdf_path: str,  # Ensure original signature
-    project_id: Optional[str] = None,  # Ensure original signature
-    location: Optional[str] = None,  # Ensure original signature
+    project_id: str | None = None,  # Ensure original signature
+    location: str | None = None,  # Ensure original signature
     joke_mode: str = "default",  # Ensure original signature
 ) -> ReviewState:
     """
@@ -141,8 +140,8 @@ def main():
     try:
         # Start the server using the default 'stdio' transport
         mcp.run(transport="stdio")  # Ensure stdio transport
-    except Exception as e:
-        logger.exception(f"MCP server failed: {e}")  # Log any exception during run
+    except Exception:
+        logger.exception("MCP server failed")  # Log any exception during run
     finally:
         logger.info("MCP server finished or was interrupted.")
 

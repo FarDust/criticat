@@ -4,6 +4,7 @@ This module mounts the MCP server to FastAPI, enabling both REST and MCP protoco
 """
 
 import logging
+
 from fastapi import FastAPI
 from fastapi_mcp import FastApiMCP
 

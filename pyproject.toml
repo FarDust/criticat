@@ -36,6 +36,9 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends", "typer.Option"]
+
 [tool.criticat]
 default_joke_mode = "default"
 

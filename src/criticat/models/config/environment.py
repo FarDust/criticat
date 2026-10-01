@@ -6,9 +6,9 @@ from environment variables with proper type conversion and validation.
 It also respects standard Google Cloud SDK environment variables.
 """
 
-import os
-from typing import Optional
 import logging
+import os
+
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -22,7 +22,7 @@ class CriticatSettings(BaseSettings):
     """
 
     # Google Cloud settings - will check standard GCP env vars in get_gcp_project_id
-    gcp_project_id: Optional[str] = None
+    gcp_project_id: str | None = None
     gcp_location: str = "us-central1"
 
     # Server settings
@@ -32,7 +32,7 @@ class CriticatSettings(BaseSettings):
     # Add more settings as needed
 
     # Any API keys or tokens should use SecretStr to prevent logging
-    openai_api_key: Optional[SecretStr] = None
+    openai_api_key: SecretStr | None = None
 
     model_config = SettingsConfigDict(
         env_prefix="CRITICAT_",
@@ -48,7 +48,7 @@ settings = CriticatSettings()
 
 
 # Convenience functions for common settings with GCP environment variable fallbacks
-def get_gcp_project_id() -> Optional[str]:
+def get_gcp_project_id() -> str | None:
     """
     Get the GCP project ID from environment.
     Checks CRITICAT_GCP_PROJECT_ID first, then falls back to
