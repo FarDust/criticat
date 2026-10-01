@@ -5,11 +5,11 @@ Uses dependency-injector to manage application dependencies.
 
 import logging
 import os
+
 from dependency_injector import containers, providers
 
 from criticat.models.models import VertexAIConfig
 from criticat.use_cases.review import ReviewPDF
-
 
 logger = logging.getLogger(__name__)
 

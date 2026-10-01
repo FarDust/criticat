@@ -5,18 +5,18 @@ Provides RESTful API endpoints for interacting with the PDF review functionality
 """
 
 import logging
-from typing import Dict, List, Optional, AsyncGenerator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
+
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from criticat.infrastructure.di.providers import (
+    ReviewDependencies,
+    get_review_dependencies,
+)
 from criticat.models.config.app import JokeMode, ReviewConfig
 from criticat.models.formatting import FormatReview
-from criticat.infrastructure.di.providers import (
-    get_review_dependencies,
-    ReviewDependencies,
-)
-
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class ReviewRequest(BaseModel):
     """
 
     pdf_path: str = Field(description="Path to the PDF file to review")
-    project_id: Optional[str] = Field(
+    project_id: str | None = Field(
         default=None,
         description="Google Cloud project ID (defaults to CRITICAT_GCP_PROJECT_ID environment variable)",
     )
@@ -69,10 +69,10 @@ class ReviewResponse(BaseModel):
         List of cat jokes injected in the review.
     """
 
-    review_feedback: Dict[str, FormatReview] = Field(
+    review_feedback: dict[str, FormatReview] = Field(
         default_factory=dict, description="LLM feedback on the document"
     )
-    jokes: List[str] = Field(
+    jokes: list[str] = Field(
         default_factory=list, description="List of cat jokes injected in the review"
     )
 
@@ -166,15 +166,15 @@ async def review_pdf(
             jokes=final_state["review"].jokes,
         )
 
-    except HTTPException as http_exc:
-        raise http_exc
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error during PDF review: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Review failed: {str(e)}")
+        logger.exception("Error during PDF review")
+        raise HTTPException(status_code=500, detail=f"Review failed: {e!s}") from e
 
 
 @app.get("/health", description="Health check endpoint")
-async def health_check() -> Dict[str, str]:
+async def health_check() -> dict[str, str]:
     """
     Provide a simple health check endpoint.
 

@@ -11,7 +11,6 @@ from criticat.models.config.app import JokeMode, ReviewConfig
 from criticat.models.models import VertexAIConfig
 from criticat.use_cases.review import ReviewPDF
 
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -113,8 +112,8 @@ def review(
         )
 
         logger.info("Review completed successfully")
-    except Exception as e:
-        logger.error(f"Error during review: {e}", exc_info=True)
+    except Exception:
+        logger.exception("Error during review")
         sys.exit(1)
 
 

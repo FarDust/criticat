@@ -2,16 +2,17 @@
 Unit tests for the Criticat API endpoints.
 """
 
-import pytest
 from unittest.mock import MagicMock
-from httpx import AsyncClient, ASGITransport  # Import ASGITransport
+
+import pytest
+from httpx import ASGITransport, AsyncClient  # Import ASGITransport
 
 from criticat.interfaces.api import (
-    ReviewRequest,
-    health_check,
     ReviewDependencies,
+    ReviewRequest,
     app,  # Import the FastAPI app instance
     get_review_dependencies,  # Import the dependency getter
+    health_check,
 )
 from criticat.models.config.app import JokeMode
 from criticat.models.formatting import (
@@ -84,7 +85,7 @@ class TestReviewEndpoint:
         assert len(response_data["review_feedback"]) == 1
         assert len(response_data["jokes"]) == 1
         assert (
-            list(response_data["review_feedback"].keys())[0] == "vertex_ai"
+            next(iter(response_data["review_feedback"])) == "vertex_ai"
         )  # Check key exists
 
         # Clean up override

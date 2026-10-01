@@ -4,7 +4,7 @@ Bridges the gap between the dependency-injector container and FastAPI's dependen
 """
 
 import logging
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from fastapi import Depends
 from pydantic import BaseModel
@@ -24,7 +24,7 @@ class ReviewDependencies:
         self,
         review_pdf_factory: Callable[[list[BaseModel]], ReviewPDF],
         provider_config_factory: Callable[[str, str], BaseModel],
-        get_project_id: Callable[[], Optional[str]],
+        get_project_id: Callable[[], str | None],
         get_location: Callable[[], str],
     ):
         self.review_pdf_factory = review_pdf_factory

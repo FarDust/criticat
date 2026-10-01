@@ -1,6 +1,6 @@
-from pydantic import BaseModel, Field
-from typing import List
 from typing import Literal
+
+from pydantic import BaseModel, Field
 
 FormatCategoryName = Literal[
     # "word_spacing",
@@ -107,14 +107,14 @@ class FormatCategoryItem(BaseModel):
     name: FormatCategoryName = Field(
         ..., description="The name of the formatting issue category."
     )
-    issues: List[FormatIssue] = Field(
+    issues: list[FormatIssue] = Field(
         ..., description="List of formatting issues in this category."
     )
 
 
 class FormatReview(BaseModel):
     explanation: str = Field(..., description="Explanation of the review.")
-    categories: List[FormatCategoryItem] = Field(
+    categories: list[FormatCategoryItem] = Field(
         ..., description="All detected categories and their issues."
     )
 
