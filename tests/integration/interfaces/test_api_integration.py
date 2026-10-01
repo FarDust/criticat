@@ -5,8 +5,9 @@ These tests use FastAPI's TestClient to make HTTP requests to the API endpoints.
 """
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 from unittest.mock import MagicMock
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -19,7 +20,7 @@ def mock_review_pdf_instance():
     """Creates a mock ReviewPDF instance with a mocked _run method returning a DICT."""
     mock_instance = MagicMock()
 
-    def mock_run(config: Dict[str, Any]) -> Dict[str, Any]:  # Return Dict
+    def mock_run(config: dict[str, Any]) -> dict[str, Any]:  # Return Dict
         mock_review_data = {
             "review_feedback": {
                 "mock_provider": FormatReview(  # Keep FormatReview object
@@ -91,7 +92,7 @@ class TestAPIIntegration:
         # Check that categories contain the expected data
         categories = review_feedback["categories"]
         assert len(categories) > 0
-        assert categories[0]["name"] == "paragraph_spacing"
+        assert categories[0]["name"] == "line_spacing"
         assert len(categories[0]["issues"]) > 0
         assert (
             categories[0]["issues"][0]["description"]

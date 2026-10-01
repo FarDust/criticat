@@ -4,19 +4,21 @@ Pytest configuration for Criticat tests.
 Contains shared fixtures and mock implementations for testing.
 """
 
-from typing import Dict, Any, Callable, Iterator
+from collections.abc import Callable, Iterator
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 from criticat.interfaces.api import ReviewDependencies, app, get_review_dependencies
+from criticat.models.config.app import ReviewConfig
 from criticat.models.formatting import (
-    FormatReview,
     FormatCategoryItem,
     FormatIssue,
+    FormatReview,
+    IssueBoundingBox,
 )
-from criticat.models.config.app import ReviewConfig
 from criticat.models.states.review import ReviewState
 
 
@@ -45,7 +47,7 @@ class MockReviewPDF:
         self.project_id = provider_configs[0].project_id if provider_configs else None
         self.location = provider_configs[0].location if provider_configs else None
 
-    def _run(self, config: Dict[str, Any]) -> Dict[str, Any]:  # Change return type hint
+    def _run(self, config: dict[str, Any]) -> dict[str, Any]:  # Change return type hint
         """
         Mock implementation of the _run method.
 
@@ -66,13 +68,18 @@ class MockReviewPDF:
         format_issue = FormatIssue(
             description="Inconsistent spacing between paragraphs",
             explanation="The spacing between paragraphs varies throughout the document, affecting readability",
+            error_location=IssueBoundingBox(
+                example="Experience section",
+                bounding_box=[50, 120, 550, 180],
+            ),
+            cause="Inconsistent use of \\vspace between sections",
             status="warning",
             confidence=4,
         )
 
         # Create a format category
         format_category = FormatCategoryItem(
-            name="paragraph_spacing",  # Use the string literal directly
+            name="line_spacing",  # Use the string literal directly
             issues=[format_issue],
         )
 
@@ -190,7 +197,7 @@ def client(review_dependencies: ReviewDependencies) -> Iterator[TestClient]:
 
 
 @pytest.fixture
-def mock_review_pdf_run() -> Callable[[Dict[str, Any]], Dict[str, Any]]:
+def mock_review_pdf_run() -> Callable[[dict[str, Any]], dict[str, Any]]:
     """
     Provides a mock function mimicking ReviewPDF._run for unit tests.
 
@@ -203,7 +210,7 @@ def mock_review_pdf_run() -> Callable[[Dict[str, Any]], Dict[str, Any]]:
         A mock function that accepts a config dict and returns a mock result dict.
     """
 
-    def _mock_run(config: Dict[str, Any]) -> Dict[str, Any]:
+    def _mock_run(config: dict[str, Any]) -> dict[str, Any]:
         """Mock run implementation for specific unit test needs."""
         # Simulate returning a dictionary structure matching ControlState
         mock_review_data = {
