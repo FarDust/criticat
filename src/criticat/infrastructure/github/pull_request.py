@@ -31,7 +31,7 @@ class PullRequestService(BaseModel):
         url = f"https://api.github.com/repos/{payload.repository}/issues/{payload.pr_number}/comments"
         headers = {
             "Accept": "application/vnd.github.v3+json",
-            "Authorization": f"token {self.config.github_token}",
+            "Authorization": f"token {self.config.github_token.get_secret_value()}",
             "Content-Type": "application/json",
         }
         data = {"body": payload.body}

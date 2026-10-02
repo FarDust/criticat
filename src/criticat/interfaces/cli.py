@@ -7,9 +7,9 @@ import sys
 
 import typer
 
-from criticat.models.config.app import JokeMode, ReviewConfig
-from criticat.models.models import VertexAIConfig
-from criticat.use_cases.review import ReviewPDF
+from criticat.models.config.app import JokeMode
+from criticat.reporting import render_review_markdown
+from criticat.use_cases.service import ReviewError, ReviewService
 
 # Configure logging
 logging.basicConfig(
@@ -86,35 +86,18 @@ def review(
     logger.info(f"Starting Criticat review for {pdf_path}")
 
     try:
-        if not project_id:
-            logger.error(
-                "No GCP project ID provided. Either set CRITICAT_GCP_PROJECT_ID environment variable "
-                "or use --project-id option."
-            )
-            sys.exit(1)
-
-        config = ReviewConfig(
+        review_state = ReviewService().run(
             pdf_path=pdf_path,
+            project_id=project_id,
+            location=location,
             joke_mode=joke_mode,
         )
-
-        review_use_case = ReviewPDF(
-            provider_configs=[
-                VertexAIConfig(
-                    project_id=project_id,
-                    location=location,
-                ),
-            ]
-        )
-
-        review_use_case._run(
-            config=config.model_dump(),
-        )
-
-        logger.info("Review completed successfully")
-    except Exception:
-        logger.exception("Error during review")
+    except ReviewError as e:
+        logger.error("Review failed: %s", e)
         sys.exit(1)
+
+    typer.echo(render_review_markdown(review_state))
+    logger.info("Review completed successfully")
 
 
 if __name__ == "__main__":

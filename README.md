@@ -70,7 +70,7 @@ Besides the CLI, Criticat can run as a server, exposing its functionality throug
 
 #### Standard FastAPI Server
 
-This runs a standard FastAPI web server using Uvicorn, defined in `src/criticat/interfaces/api.py` (or similar). You can add standard REST API endpoints directly to this FastAPI application.
+This runs a standard FastAPI web server using Uvicorn, defined in `src/criticat/interfaces/api.py`. It exposes `POST /review` and `GET /health`.
 
 Start the server using the `criticat-api` command:
 ```bash
@@ -80,22 +80,69 @@ criticat-api
 # Or specify host and port
 # criticat-api --host 0.0.0.0 --port 8080
 ```
-The server will typically run on `http://127.0.0.1:8000`. Standard HTTP clients can interact with any REST endpoints defined in the application.
+The server runs on `http://0.0.0.0:8000` by default (configurable with `CRITICAT_SERVER_HOST` / `CRITICAT_SERVER_PORT`). `POST /review` returns 400 for invalid input (missing project, missing or non-PDF file), 422 for schema errors and 500 if the review pipeline fails.
 
 #### Model Context Protocol (SSE via FastAPI)
 
-This protocol runs *on top of* the Standard FastAPI Server (started via `criticat-api`). It uses Server-Sent Events (SSE) over HTTP, typically served at the `/mcp` endpoint. This is the recommended way for MCP clients (like specific LLM frontends or agents) to interact with Criticat's tools over the network.
+This protocol runs *on top of* the Standard FastAPI Server (started via `criticat-api`). It uses Server-Sent Events (SSE) at `/mcp` and exposes the REST operations as the MCP tools `review_pdf` and `health_check`. Tool calls are dispatched in-process to the FastAPI app, so no extra HTTP hop is needed.
 
-#### Model Context Protocol (stdio - Experimental/Limited)
+#### Model Context Protocol (stdio / SSE - standalone server)
 
-This mode allows interaction via standard input/output, suitable for local process communication. **Note:** This transport currently has limitations within the underlying `fastapi-mcp` library and may not function as expected for tool calls.
+`criticat-mcp` runs a dedicated MCP server (built on the official MCP Python SDK). It speaks stdio by default, which is what desktop MCP clients such as Claude Desktop, Cursor or Windsurf expect. All logs go to stderr so stdout only carries protocol messages.
 
-Start the server using the `criticat-mcp` command:
 ```bash
-# Ensure GCP authentication is set up
+# stdio (default)
 criticat-mcp
+
+# SSE over HTTP
+criticat-mcp --transport sse --host 127.0.0.1 --port 8000
 ```
-Clients would interact by sending JSON-RPC 2.0 messages to the process's stdin and reading responses from stdout. Due to the current limitations, using the SSE server or the CLI via `subprocess` is recommended for programmatic interaction.
+
+| Option | Environment variable | Default |
+| --- | --- | --- |
+| `--transport {stdio,sse}` | `CRITICAT_MCP_TRANSPORT` | `stdio` |
+| `--host` / `--port` (SSE only) | `CRITICAT_SERVER_HOST` / `CRITICAT_SERVER_PORT` | `0.0.0.0` / `8000` |
+| `--log-level` | `CRITICAT_LOG_LEVEL` | `INFO` |
+
+The GCP project is resolved from the `project_id` argument, then `CRITICAT_GCP_PROJECT_ID`, `CLOUDSDK_CORE_PROJECT` and `GOOGLE_CLOUD_PROJECT`. The location is resolved from the `location` argument, then `CRITICAT_GCP_LOCATION`, `CLOUDSDK_COMPUTE_REGION`, and finally `us-central1`.
+
+Example client configuration (Claude Desktop `claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "criticat": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/FarDust/criticat", "criticat-mcp"],
+      "env": { "CRITICAT_GCP_PROJECT_ID": "your-gcp-project-id" }
+    }
+  }
+}
+```
+
+**Tools**
+
+| Tool | Description |
+| --- | --- |
+| `review_pdf(pdf_path, project_id?, location?, joke_mode?, include_markdown?)` | Runs the Gemini review. Returns a summary (issue counts by severity, blocking flag), structured per-provider feedback, jokes and a Markdown report. Reports progress while it runs. |
+| `validate_pdf(pdf_path)` | Cheap check that the file exists, is a real PDF and can be parsed. Returns the size and page count. Makes no Vertex AI calls. |
+| `check_configuration()` | Reports the resolved project and location, whether Poppler is installed, and any problems that would make `review_pdf` fail. |
+| `render_review_markdown(review_feedback, jokes?)` | Renders previously returned feedback as Markdown. |
+
+**Resources**: `criticat://format-categories`, `criticat://schema/format-review` (JSON schema of the feedback), `criticat://reports/latest` (the last `reports/criticat_feedback.json`).
+
+**Prompts**: `review_latex_pdf(pdf_path, focus?)` walks the model through validate, review and summarize.
+
+### Development
+
+```bash
+sudo apt-get install poppler-utils  # needed for the PDF rendering tests
+uv sync --all-groups
+uv run pytest
+uvx ruff check . && uvx ruff format --check .
+```
+
+The test suite never calls Vertex AI: the review chains are replaced with fakes, and real PDFs are generated on the fly. Tests that need Poppler are skipped when it is not installed. The MCP tests talk to the servers over in-memory, stdio subprocess and live SSE transports.
 
 ### GitHub Actions (In Development)
 

@@ -4,10 +4,10 @@ Uses dependency-injector to manage application dependencies.
 """
 
 import logging
-import os
 
 from dependency_injector import containers, providers
 
+from criticat.models.config.environment import get_gcp_location, get_gcp_project_id
 from criticat.models.models import VertexAIConfig
 from criticat.use_cases.review import ReviewPDF
 
@@ -24,10 +24,8 @@ class Container(containers.DeclarativeContainer):
     config = providers.Configuration()
 
     # Direct providers for environment variables
-    get_project_id = providers.Callable(lambda: os.getenv("CRITICAT_GCP_PROJECT_ID"))
-    get_location = providers.Callable(
-        lambda: os.getenv("CRITICAT_GCP_LOCATION", "us-central1")
-    )
+    get_project_id = providers.Callable(get_gcp_project_id)
+    get_location = providers.Callable(get_gcp_location)
 
     # Factory providers
     provider_config_factory = providers.Factory(

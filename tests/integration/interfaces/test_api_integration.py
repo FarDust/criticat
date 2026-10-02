@@ -1,192 +1,116 @@
 """
-Integration tests for the Criticat API endpoints.
-
-These tests use FastAPI's TestClient to make HTTP requests to the API endpoints.
+Integration tests for the REST API running the real dependency container and
+LangGraph pipeline, with only the Vertex AI chains replaced by fakes.
 """
 
+import json
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
+from langchain_core.runnables import RunnableLambda
 
-from criticat.models.config.app import ReviewConfig
-from criticat.models.formatting import FormatReview
+from criticat.interfaces.mcp import combined_app
+from criticat.use_cases import review as review_module
+from tests.conftest import requires_poppler
+from tests.factories import make_feedback, make_issue
 
-
-@pytest.fixture(scope="module")
-def mock_review_pdf_instance():
-    """Creates a mock ReviewPDF instance with a mocked _run method returning a DICT."""
-    mock_instance = MagicMock()
-
-    def mock_run(config: dict[str, Any]) -> dict[str, Any]:  # Return Dict
-        mock_review_data = {
-            "review_feedback": {
-                "mock_provider": FormatReview(  # Keep FormatReview object
-                    provider_name="mock_provider",
-                    feedback="Integration test feedback",
-                    suggestions=["Integration suggestion"],
-                )
-            },
-            "jokes": ["Integration test joke"],
-        }
-        # Return a dictionary mimicking the structure used in api.py
-        return {
-            "app_config": ReviewConfig(**config),  # Keep ReviewConfig object
-            "review": type(
-                "MockReviewState", (), mock_review_data
-            )(),  # Create an object-like structure for review
-        }
-
-    mock_instance._run.side_effect = mock_run
-    return mock_instance
+FEEDBACK = make_feedback(("text_occlusion", make_issue("critical", "Clipped table")))
 
 
-class TestAPIIntegration:
-    """Integration tests for the Criticat API."""
+@pytest.fixture
+def chain_calls(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> dict[str, list[Any]]:
+    monkeypatch.chdir(tmp_path)
+    calls: dict[str, list[Any]] = {"created": [], "review": [], "joke": []}
 
-    def test_health_endpoint(self, client: TestClient):
-        """Test that health check endpoint returns 200 OK with expected response."""
-        # Act
-        response = client.get("/health")
+    def review_chain(project_id: str, location: str) -> RunnableLambda:
+        calls["created"].append((project_id, location))
+        return RunnableLambda(lambda inputs: calls["review"].append(inputs) or FEEDBACK)
 
-        # Assert
-        assert response.status_code == 200
-        assert response.json() == {"status": "healthy", "service": "Criticat API"}
+    def joke_chain(project_id: str, location: str) -> RunnableLambda:
+        return RunnableLambda(lambda inputs: calls["joke"].append(inputs) or "Hiss.")
 
-    def test_review_endpoint_with_valid_request(
-        self, client: TestClient, tmp_path: Path
-    ):
-        """Test that review endpoint returns 200 OK with expected response structure."""
-        # Arrange
-        # Create a temporary file to use as PDF path
-        pdf_path = tmp_path / "test.pdf"
-        pdf_path.touch()
+    monkeypatch.setattr(review_module, "review_feedback_chain", review_chain)
+    monkeypatch.setattr(review_module, "joke_chain", joke_chain)
+    return calls
 
-        # Create request payload
-        request_data = {
-            "pdf_path": str(pdf_path),
-            "project_id": "test-project-id",
-            "joke_mode": "default",
-        }
 
-        # Act
-        response = client.post("/review", json=request_data)
+@pytest.fixture
+def real_client() -> Iterator[TestClient]:
+    with TestClient(combined_app) as client:
+        yield client
 
-        # Assert
-        assert response.status_code == 200
 
-        response_data = response.json()
+def test_health(real_client: TestClient) -> None:
+    response = real_client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "healthy", "service": "Criticat API"}
 
-        # Check structure of response
-        assert "review_feedback" in response_data
-        assert "jokes" in response_data
-        assert len(response_data["jokes"]) == 1
 
-        # Check review feedback has expected fields
-        review_feedback = response_data["review_feedback"]["vertex_ai"]
-        assert "explanation" in review_feedback
-        assert "categories" in review_feedback
+@requires_poppler
+def test_full_pipeline_with_real_pdf(
+    real_client: TestClient,
+    chain_calls: dict[str, list[Any]],
+    sample_pdf: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "gcloud-project")
+    monkeypatch.setenv("CLOUDSDK_COMPUTE_REGION", "europe-west1")
 
-        # Check that categories contain the expected data
-        categories = review_feedback["categories"]
-        assert len(categories) > 0
-        assert categories[0]["name"] == "line_spacing"
-        assert len(categories[0]["issues"]) > 0
-        assert (
-            categories[0]["issues"][0]["description"]
-            == "Inconsistent spacing between paragraphs"
-        )
-        assert categories[0]["issues"][0]["status"] == "warning"
+    response = real_client.post(
+        "/review", json={"pdf_path": str(sample_pdf), "joke_mode": "default"}
+    )
 
-    def test_review_endpoint_with_chaotic_joke_mode(
-        self, client: TestClient, tmp_path: Path
-    ):
-        """Test that review endpoint works with chaotic joke mode."""
-        # Arrange
-        pdf_path = tmp_path / "test.pdf"
-        pdf_path.touch()
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["jokes"] == ["Hiss."]
+    assert body["review_feedback"]["vertex_ai"] == FEEDBACK.model_dump()
+    assert chain_calls["created"] == [("gcloud-project", "europe-west1")]
+    assert len(chain_calls["review"][0]["document_images"]) == 2
 
-        request_data = {
-            "pdf_path": str(pdf_path),
-            "project_id": "test-project-id",
-            "joke_mode": "chaotic",
-        }
+    report = json.loads((tmp_path / "reports" / "criticat_feedback.json").read_text())
+    assert report["jokes"] == ["Hiss."]
 
-        # Act
-        response = client.post("/review", json=request_data)
 
-        # Assert
-        assert response.status_code == 200
+def test_missing_project_with_real_container(
+    real_client: TestClient, fake_pdf: Path
+) -> None:
+    response = real_client.post("/review", json={"pdf_path": str(fake_pdf)})
+    assert response.status_code == 400
+    assert "No GCP project ID provided" in response.json()["detail"]
 
-        response_data = response.json()
-        assert "jokes" in response_data
-        # Note: In real integration test with non-mocked service,
-        # chaotic mode would return 1-3 jokes, but our mock returns a fixed joke
 
-    def test_review_endpoint_without_project_id(
-        self, client: TestClient, tmp_path: Path
-    ):
-        """Test that review endpoint works with project ID from environment."""
-        # Arrange
-        pdf_path = tmp_path / "test.pdf"
-        pdf_path.touch()
+def test_missing_pdf_with_real_container(
+    real_client: TestClient, tmp_path: Path
+) -> None:
+    response = real_client.post(
+        "/review",
+        json={"pdf_path": str(tmp_path / "missing.pdf"), "project_id": "p"},
+    )
+    assert response.status_code == 400
 
-        request_data = {"pdf_path": str(pdf_path), "joke_mode": "none"}
 
-        # Act
-        response = client.post("/review", json=request_data)
+@requires_poppler
+def test_unrenderable_pdf_returns_500(
+    real_client: TestClient,
+    chain_calls: dict[str, list[Any]],
+    fake_pdf: Path,
+) -> None:
+    response = real_client.post(
+        "/review", json={"pdf_path": str(fake_pdf), "project_id": "p"}
+    )
+    assert response.status_code == 500
+    assert response.json()["detail"].startswith("Review failed:")
+    assert chain_calls["review"] == []
 
-        # Assert
-        assert response.status_code == 200
 
-        # With our mock dependencies, it should use "mock-project-id"
-        response_data = response.json()
-        assert "review_feedback" in response_data
-        assert "jokes" in response_data
-
-    def test_review_endpoint_with_invalid_pdf_path(self, client: TestClient):
-        """Test that review endpoint returns an appropriate error for invalid PDF path."""
-        # Arrange
-        request_data = {
-            "pdf_path": "/path/does/not/exist.pdf",
-            "project_id": "test-project-id",
-            "joke_mode": "default",
-        }
-
-        # NOTE: Our mock currently doesn't validate the PDF path
-        # In a real integration test, this would need to be tested
-        # and the endpoint should return an appropriate error
-
-        # Act
-        response = client.post("/review", json=request_data)
-
-        # Assert
-        assert response.status_code == 200
-
-        # In a real implementation, we should test for error handling here
-
-    def test_review_endpoint_with_invalid_joke_mode(
-        self, client: TestClient, tmp_path: Path
-    ):
-        """Test that review endpoint validates the joke mode."""
-        # Arrange
-        pdf_path = tmp_path / "test.pdf"
-        pdf_path.touch()
-
-        request_data = {
-            "pdf_path": str(pdf_path),
-            "project_id": "test-project-id",
-            "joke_mode": "invalid_mode",  # Invalid value
-        }
-
-        # Act
-        response = client.post("/review", json=request_data)
-
-        # Assert
-        assert response.status_code == 422  # Validation error
-
-        # Check that error details mention the joke_mode field
-        error_details = response.json()["detail"]
-        assert any("joke_mode" in error["loc"] for error in error_details)
+def test_invalid_joke_mode_returns_422(real_client: TestClient, fake_pdf: Path) -> None:
+    response = real_client.post(
+        "/review", json={"pdf_path": str(fake_pdf), "joke_mode": "invalid_mode"}
+    )
+    assert response.status_code == 422
