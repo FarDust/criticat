@@ -8,7 +8,8 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 
 from criticat.infrastructure.di.providers import (
@@ -17,6 +18,8 @@ from criticat.infrastructure.di.providers import (
 )
 from criticat.models.config.app import JokeMode, ReviewConfig
 from criticat.models.formatting import FormatReview
+from criticat.models.states.review import ReviewState
+from criticat.use_cases.service import ReviewInputError, validate_pdf_path
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +39,7 @@ class ReviewRequest(BaseModel):
         Path to the PDF file to review.
     project_id : Optional[str]
         Google Cloud project ID (defaults to environment variable).
-    location : str
+    location : Optional[str]
         Google Cloud location (defaults to environment variable or 'us-central1').
     joke_mode : JokeMode
         Mode for injecting cat jokes (none, default, chaotic).
@@ -47,8 +50,8 @@ class ReviewRequest(BaseModel):
         default=None,
         description="Google Cloud project ID (defaults to CRITICAT_GCP_PROJECT_ID environment variable)",
     )
-    location: str = Field(
-        default="us-central1",
+    location: str | None = Field(
+        default=None,
         description="Google Cloud location (defaults to CRITICAT_GCP_LOCATION environment variable or 'us-central1')",
     )
     joke_mode: JokeMode = Field(
@@ -100,12 +103,12 @@ app = FastAPI(
 
 @app.post(
     "/review",
+    operation_id="review_pdf",
     response_model=ReviewResponse,
     description="Review a PDF document and generate formatting feedback",
 )
 async def review_pdf(
     request: ReviewRequest,
-    background_tasks: BackgroundTasks,
     deps: ReviewDependencies = Depends(get_review_dependencies),
 ) -> ReviewResponse:
     """
@@ -115,8 +118,6 @@ async def review_pdf(
     ----------
     request : ReviewRequest
         The review request parameters.
-    background_tasks : BackgroundTasks
-        FastAPI background tasks manager.
     deps : ReviewDependencies
         Dependency container with required services.
 
@@ -128,10 +129,15 @@ async def review_pdf(
     Raises
     ------
     HTTPException
-        If project_id is missing (400) or an internal error occurs (500).
+        If the input is invalid (400) or an internal error occurs (500).
     """
     try:
         logger.info(f"Received review request for PDF: {request.pdf_path}")
+
+        try:
+            pdf_path = validate_pdf_path(request.pdf_path)
+        except ReviewInputError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
         project_id = request.project_id or deps.get_project_id()
         if not project_id:
@@ -143,7 +149,7 @@ async def review_pdf(
         location = request.location or deps.get_location()
 
         config = ReviewConfig(
-            pdf_path=request.pdf_path,
+            pdf_path=str(pdf_path),
             joke_mode=request.joke_mode,
         )
 
@@ -155,15 +161,16 @@ async def review_pdf(
         review_use_case = deps.review_pdf_factory(provider_configs=[provider_config])
 
         logger.info("Starting review process...")
-        final_state = review_use_case._run(
-            config=config.model_dump(),
+        final_state = await run_in_threadpool(
+            review_use_case._run, config=config.model_dump()
         )
+        review = ReviewState.model_validate(final_state["review"], from_attributes=True)
 
         logger.info("Review completed successfully")
 
         return ReviewResponse(
-            review_feedback=final_state["review"].review_feedback,
-            jokes=final_state["review"].jokes,
+            review_feedback=review.review_feedback,
+            jokes=review.jokes,
         )
 
     except HTTPException:
@@ -173,7 +180,7 @@ async def review_pdf(
         raise HTTPException(status_code=500, detail=f"Review failed: {e!s}") from e
 
 
-@app.get("/health", description="Health check endpoint")
+@app.get("/health", operation_id="health_check", description="Health check endpoint")
 async def health_check() -> dict[str, str]:
     """
     Provide a simple health check endpoint.
